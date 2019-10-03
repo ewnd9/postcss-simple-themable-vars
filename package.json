@@ -1,7 +1,7 @@
 {
-  "name": "postcss-simple-vars",
-  "version": "5.0.2",
-  "description": "PostCSS plugin for Sass-like variables",
+  "name": "postcss-simple-themable-vars",
+  "version": "1.0.0",
+  "description": "PostCSS plugin for Sass-like variables with themes",
   "keywords": [
     "postcss",
     "css",
