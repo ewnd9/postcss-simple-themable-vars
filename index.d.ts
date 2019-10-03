@@ -74,6 +74,11 @@ declare module "postcss-simple-vars" {
        * @memberOf ISimpleVarsBase
        */
       unknown?: (node: postcss.Node, name: string, result: postcss.Result) => void;
+      /**
+       *
+       * @memberOf ISimpleVarsBase
+       */
+      globalCssModulesTheme?: boolean;
     }
 
     /**

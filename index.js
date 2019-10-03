@@ -187,8 +187,13 @@ module.exports = postcss.plugin('postcss-simple-vars', function (opts) {
     toInsert.forEach(({ node }) => {
       for (var [theme, variables] of Object.entries(themes).reverse()) {
         var clone = node.clone()
+        var themeSelector = `.${theme}`
 
-        clone.selector = `.${theme} ${clone.selector}`
+        if (opts.globalCssModulesTheme) {
+          themeSelector = `:global(${themeSelector})`
+        }
+
+        clone.selector = `${themeSelector} ${clone.selector}`
         clone.nodes = clone.nodes
           .filter(isDeclWithVariables)
           .map(node => {

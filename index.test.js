@@ -206,3 +206,11 @@ it('themes', function () {
     { variables: { 'font-size': '12pt' }, themes: { 'theme-1': { color: 'red' }, 'theme-2': { color: 'blue' } } }
   )
 })
+
+it('themes global css modules', function () {
+  return run(
+    '.item { color: $color; font-size: $font-size; }',
+    '.item { font-size: 12pt; }\n:global(.theme-1) .item { color: red; }\n:global(.theme-2) .item { color: blue; }',
+    { globalCssModulesTheme: true, variables: { 'font-size': '12pt' }, themes: { 'theme-1': { color: 'red' }, 'theme-2': { color: 'blue' } } }
+  )
+})

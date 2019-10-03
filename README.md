@@ -24,7 +24,8 @@ You can pass a `theme` object with nested variables and get following transforma
     'theme-2': {
       color: 'blue',
     },
-  }
+  },
+  globalCssModulesTheme: true,
 }
 ```
 
@@ -42,11 +43,11 @@ You can pass a `theme` object with nested variables and get following transforma
   font-size: 12pt;
 }
 
-.theme-1 .item {
+:global(.theme-1) .item {
   color: red;
 }
 
-.theme-2 .item {
+:global(.theme-2) .item {
   color: blue;
 }
 ```
