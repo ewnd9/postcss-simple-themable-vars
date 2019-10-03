@@ -9,7 +9,7 @@ function definition (variables, node, opts) {
   }
 }
 
-function variable (variables, node, str, name, opts, result) {
+function variable (themes, variables, node, str, name, opts, result) {
   if (opts.only) {
     if (typeof opts.only[name] !== 'undefined') {
       return opts.only[name]
@@ -26,6 +26,10 @@ function variable (variables, node, str, name, opts, result) {
     return str
   }
 
+  if (Object.entries(themes).some(([,variables]) => variables[name])) {
+    return str
+  }
+
   var fix = opts.unknown(node, name, result)
 
   if (fix) {
@@ -35,21 +39,21 @@ function variable (variables, node, str, name, opts, result) {
   return str
 }
 
-function simpleSyntax (variables, node, str, opts, result) {
+function simpleSyntax (themes, variables, node, str, opts, result) {
   return str.replace(/(^|[^\w])\$([\w\d-_]+)/g, function (_, bef, name) {
-    return bef + variable(variables, node, '$' + name, name, opts, result)
+    return bef + variable(themes, variables, node, '$' + name, name, opts, result)
   })
 }
 
-function inStringSyntax (variables, node, str, opts, result) {
+function inStringSyntax (themes, variables, node, str, opts, result) {
   return str.replace(/\$\(\s*([\w\d-_]+)\s*\)/g, function (all, name) {
-    return variable(variables, node, all, name, opts, result)
+    return variable(themes, variables, node, all, name, opts, result)
   })
 }
 
-function bothSyntaxes (variables, node, str, opts, result) {
-  str = simpleSyntax(variables, node, str, opts, result)
-  str = inStringSyntax(variables, node, str, opts, result)
+function bothSyntaxes (themes, variables, node, str, opts, result) {
+  str = simpleSyntax(themes, variables, node, str, opts, result)
+  str = inStringSyntax(themes, variables, node, str, opts, result)
   return str
 }
 
@@ -63,35 +67,39 @@ function repeat (value, callback) {
   return newValue
 }
 
-function declValue (variables, node, opts, result) {
+function declValue (themes, variables, node, opts, result) {
   node.value = repeat(node.value, function (value) {
-    return bothSyntaxes(variables, node, value, opts, result)
+    return bothSyntaxes(themes, variables, node, value, opts, result)
   })
 }
 
-function declProp (variables, node, opts, result) {
+function declProp (themes, variables, node, opts, result) {
   node.prop = repeat(node.prop, function (value) {
-    return inStringSyntax(variables, node, value, opts, result)
+    return inStringSyntax(themes, variables, node, value, opts, result)
   })
 }
 
-function ruleSelector (variables, node, opts, result) {
+function ruleSelector (themes, variables, node, opts, result) {
   node.selector = repeat(node.selector, function (value) {
-    return bothSyntaxes(variables, node, value, opts, result)
+    return bothSyntaxes(themes, variables, node, value, opts, result)
   })
 }
 
-function atruleParams (variables, node, opts, result) {
+function atruleParams (themes, variables, node, opts, result) {
   node.params = repeat(node.params, function (value) {
-    return bothSyntaxes(variables, node, value, opts, result)
+    return bothSyntaxes(themes, variables, node, value, opts, result)
   })
 }
 
-function comment (variables, node, opts, result) {
+function comment (themes, variables, node, opts, result) {
   node.text = node.text
     .replace(/<<\$\(\s*([\w\d-_]+)\s*\)>>/g, function (all, name) {
-      return variable(variables, node, all, name, opts, result)
+      return variable(themes, variables, node, all, name, opts, result)
     })
+}
+
+function isDeclWithVariables (node) {
+  return node.type === 'decl' && node.value.toString().indexOf('$') !== -1
 }
 
 module.exports = postcss.plugin('postcss-simple-vars', function (opts) {
@@ -123,29 +131,75 @@ module.exports = postcss.plugin('postcss-simple-vars', function (opts) {
       }
     }
 
+    var themes = { }
+    if (typeof opts.themes === 'function') {
+      themes = opts.themes()
+    } else if (typeof opts.themes === 'object') {
+      for (var i in opts.themes) {
+        themes[i] = {}
+        for (var j in opts.themes[i]) themes[i][j] = opts.themes[i][j]
+      }
+    }
+
+    for (var theme in themes) {
+      var themeVariables = themes[theme]
+
+      for (var name in themeVariables) {
+        if (name[0] === '$') {
+          var fixed = name.slice(1)
+          themeVariables[fixed] = themeVariables[name]
+          delete themeVariables[name]
+        }
+      }
+    }
+
+    var toInsert = []
+
     css.walk(function (node) {
       if (node.type === 'decl') {
         if (node.value.toString().indexOf('$') !== -1) {
-          declValue(variables, node, opts, result)
+          declValue(themes, variables, node, opts, result)
         }
         if (node.prop.indexOf('$(') !== -1) {
-          declProp(variables, node, opts, result)
+          declProp(themes, variables, node, opts, result)
         } else if (node.prop[0] === '$') {
           if (!opts.only) definition(variables, node, opts)
         }
       } else if (node.type === 'rule') {
         if (node.selector.indexOf('$') !== -1) {
-          ruleSelector(variables, node, opts, result)
+          ruleSelector(themes, variables, node, opts, result)
+        }
+
+        if (Object.keys(themes).length > 0 && node.nodes.some(node => isDeclWithVariables(node))) {
+          toInsert.push({ node })
         }
       } else if (node.type === 'atrule') {
         if (node.params && node.params.indexOf('$') !== -1) {
-          atruleParams(variables, node, opts, result)
+          atruleParams(themes, variables, node, opts, result)
         }
       } else if (node.type === 'comment') {
         if (node.text.indexOf('$') !== -1) {
-          comment(variables, node, opts, result)
+          comment(themes, variables, node, opts, result)
         }
       }
+    })
+
+    toInsert.forEach(({ node }) => {
+      for (var [theme, variables] of Object.entries(themes).reverse()) {
+        var clone = node.clone()
+
+        clone.selector = `.${theme} ${clone.selector}`
+        clone.nodes = clone.nodes
+          .filter(isDeclWithVariables)
+          .map(node => {
+            declValue(themes, variables, node, opts, result)
+            return node
+          })
+
+        node.parent.insertAfter(node, '\n' + clone.toString())
+      }
+
+      node.nodes = node.nodes.filter(node => !isDeclWithVariables(node))
     })
 
     Object.keys(variables).forEach(function (key) {

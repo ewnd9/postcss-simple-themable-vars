@@ -36,6 +36,7 @@ declare module "postcss-simple-vars" {
      */
     export interface ISimpleVarsArgument extends ISimpleVarsBase {
       variables: IArgument;
+      themes: Record<string, IArgument>;
     }
 
     /**

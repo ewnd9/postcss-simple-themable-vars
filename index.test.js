@@ -198,3 +198,11 @@ it('keep nested variables', function () {
     { keep: true }
   )
 })
+
+it('themes', function () {
+  return run(
+    '.item { color: $color; font-size: $font-size; }',
+    '.item { font-size: 12pt; }\n.theme-1 .item { color: red; }\n.theme-2 .item { color: blue; }',
+    { variables: { 'font-size': '12pt' }, themes: { 'theme-1': { color: 'red' }, 'theme-2': { color: 'blue' } } }
+  )
+})
